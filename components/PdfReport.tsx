@@ -1,5 +1,6 @@
 
 
+
 import React from 'react';
 import type { ResultadoCalculo } from '../types';
 import { formatCLP } from '../utils/formatters';
@@ -11,7 +12,6 @@ interface PdfReportProps {
   primeraCuota: string;
   cantidadCuotas: string;
   nombreEncargado: string;
-  shareableLink: string;
 }
 
 const PdfReport: React.FC<PdfReportProps> = ({ 
@@ -21,7 +21,6 @@ const PdfReport: React.FC<PdfReportProps> = ({
     primeraCuota,
     cantidadCuotas,
     nombreEncargado,
-    shareableLink,
 }) => {
   const {
     elegible,
@@ -119,26 +118,6 @@ const PdfReport: React.FC<PdfReportProps> = ({
         <strong>Nota:</strong> Este es un informe generado por una herramienta de cálculo auxiliar y sus resultados no constituyen una verificación oficial del proyecto. La validez final de los datos depende de la revisión formal por parte de la entidad correspondiente.
       </div>
       
-      <section className="mt-8 mb-4">
-        <h2 className="text-lg font-semibold border-b pb-2 mb-3">Acceso a los Datos</h2>
-        <div className="text-sm p-3 bg-gray-50 border rounded-md">
-            <p className="text-gray-700 mb-2">
-                Puede cargar los datos de este informe directamente en la aplicación para su revisión o modificación futura usando el siguiente enlace:
-            </p>
-            <a 
-                href={shareableLink} 
-                className="text-blue-600 hover:underline break-all"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                {shareableLink}
-            </a>
-            <p className="text-xs text-gray-500 mt-2">
-                Si el enlace no es interactivo, por favor copie y pegue la URL completa en su navegador.
-            </p>
-        </div>
-      </section>
-
       <footer className="mt-12 pt-4 border-t">
           <div className="flex justify-center items-center">
               <div className="w-64 text-center text-sm">

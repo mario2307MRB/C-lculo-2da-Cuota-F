@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { Rendicion, ResultadoCalculo, RendicionCalculo } from './types';
 import Card from './components/Card';
@@ -8,7 +9,8 @@ import RendicionesTable from './components/RendicionesTable';
 import ResultadosPanel from './components/ResultadosPanel';
 import PdfReport from './components/PdfReport';
 import { formatCLP, parseCLP } from './utils/formatters';
-import { InfoIcon, LinkIcon } from './constants';
+import { InfoIcon } from './constants';
+import { GoogleGenAI } from "@google/genai";
 
 // Define types for external libraries attached to the window object
 interface CustomWindow extends Window {
@@ -39,8 +41,10 @@ const App: React.FC = () => {
     const [error, setError] = useState<string>('');
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [librariesReady, setLibrariesReady] = useState(false);
-    const [showCopiedMessage, setShowCopiedMessage] = useState(false);
-    const [shareableLink, setShareableLink] = useState<string>('');
+    
+    const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+
 
     // Check for external libraries
     useEffect(() => {
@@ -78,48 +82,55 @@ const App: React.FC = () => {
             clearTimeout(timeout);
         };
     }, []);
-
-    // Hydrate state from URL on initial load
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const data = urlParams.get('data');
-        if (data) {
-            try {
-                const state = JSON.parse(atob(data));
-                setCodigoProyecto(state.codigoProyecto || '');
-                setNombreEncargado(state.nombreEncargado || '');
-                setMontoTotalProyecto(state.montoTotalProyecto || '0');
-                setCantidadCuotas(state.cantidadCuotas || '0');
-                setPrimeraCuota(state.primeraCuota || '0');
-                setRendiciones(state.rendiciones || []);
-            } catch (e) {
-                console.error("Error al cargar datos desde la URL", e);
-                setError("No se pudieron cargar los datos de verificación desde la URL.");
-            }
+    
+    const getAIAnalysis = async (calculoResultado: ResultadoCalculo, montoTotalProyectoStr: string, primeraCuotaStr: string) => {
+        if (!process.env.API_KEY) {
+            console.error("API key for GenAI is not configured.");
+            return;
         }
-    }, []);
+        
+        setIsAnalyzing(true);
+        setAiAnalysis(null);
 
-     // Effect to generate the shareable link whenever relevant data changes
-    useEffect(() => {
-        const stateToSave = {
-            codigoProyecto,
-            nombreEncargado,
-            montoTotalProyecto,
-            cantidadCuotas,
-            primeraCuota,
-            rendiciones: rendiciones.map(r => ({ id: r.id, montoRendido: r.montoRendido })),
-        };
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+        const montoPrimeraCuota = parseCLP(primeraCuotaStr);
+
+        const prompt = `
+Eres un asesor financiero experto del FOSIS, especializado en la evaluación de proyectos sociales.
+Tu tarea es analizar los datos de la rendición de la primera cuota de un convenio y proporcionar un resumen claro y accionable para el encargado del proyecto.
+
+Datos del Proyecto:
+- Monto Total del Proyecto: $${formatCLP(parseCLP(montoTotalProyectoStr))}
+- Monto Primera Cuota: $${formatCLP(montoPrimeraCuota)}
+- Monto Total Rendido: $${formatCLP(calculoResultado.sumaRendida)}
+- Porcentaje de Ejecución: ${calculoResultado.porcentajeEjecucion.toFixed(1)}%
+- Umbral Requerido (60%): $${formatCLP(calculoResultado.umbral60)}
+- Estado: ${calculoResultado.elegible ? 'CUMPLE' : 'NO CUMPLE'}
+
+Basado en estos datos, genera una recomendación profesional en español con los siguientes puntos en formato de lista (usando '*' para cada punto):
+- Un resumen del estado actual (si cumple o no y por qué).
+- Si no cumple, indica claramente cuánto falta por rendir ($${formatCLP(calculoResultado.brechaPara60)}) y sugiere acciones concretas (ej. 'Revisar gastos adicionales', 'Acelerar la presentación de boletas pendientes').
+- Si cumple, felicita al encargado y menciona que se puede proceder con la solicitud de la segunda cuota.
+- Finaliza con una nota de ánimo.
+
+Sé conciso y profesional. No agregues encabezados, saludos ni despedidas.
+        `;
+        
         try {
-            const jsonString = JSON.stringify(stateToSave);
-            const base64String = btoa(jsonString);
-            const url = new URL(window.location.origin + window.location.pathname);
-            url.searchParams.set('data', base64String);
-            setShareableLink(url.toString());
-        } catch (e) {
-            console.error("Error al generar el enlace para guardar:", e);
-            setShareableLink('');
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+            });
+            setAiAnalysis(response.text);
+        } catch (err) {
+            console.error("Error al generar análisis con IA:", err);
+            setAiAnalysis("No se pudo generar el análisis. Por favor, intente de nuevo.");
+        } finally {
+            setIsAnalyzing(false);
         }
-    }, [codigoProyecto, nombreEncargado, montoTotalProyecto, cantidadCuotas, primeraCuota, rendiciones]);
+    };
+
 
     const handleNumericInputChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -159,6 +170,7 @@ const App: React.FC = () => {
     const handleCalculate = useCallback(() => {
         setError('');
         setResultado(null);
+        setAiAnalysis(null);
         
         const montoPrimeraCuota = parseCLP(primeraCuota);
         if (montoPrimeraCuota <= 0) {
@@ -223,21 +235,9 @@ const App: React.FC = () => {
         };
         
         setResultado(newResult);
+        getAIAnalysis(newResult, montoTotalProyecto, primeraCuota);
 
     }, [primeraCuota, rendiciones, montoTotalProyecto]);
-
-    const handleSaveProgress = () => {
-        if (shareableLink) {
-            window.history.pushState({}, '', shareableLink);
-            navigator.clipboard.writeText(shareableLink).then(() => {
-                setShowCopiedMessage(true);
-                setTimeout(() => setShowCopiedMessage(false), 3000);
-            });
-        } else {
-            setError("No se pudo generar el enlace para guardar. Intente de nuevo.");
-        }
-    };
-
 
     const handleExportPDF = async () => {
         if (typeof window.html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
@@ -314,7 +314,7 @@ const App: React.FC = () => {
                 </div>
                 
                 <div className="lg:sticky top-8 self-start">
-                   <ResultadosPanel resultado={resultado} />
+                   <ResultadosPanel resultado={resultado} aiAnalysis={aiAnalysis} isAnalyzing={isAnalyzing} />
                    <div className="mt-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm p-4 rounded-lg flex items-start gap-3">
                        <InfoIcon />
                        <p><strong>Nota:</strong> Esta es una herramienta de cálculo auxiliar y sus resultados no constituyen una verificación oficial del proyecto. La validez final depende de la revisión formal.</p>
@@ -326,17 +326,10 @@ const App: React.FC = () => {
                 <div className="max-w-lg mx-auto flex flex-col sm:flex-row items-center gap-4 relative">
                     <button 
                         onClick={handleCalculate} 
-                        disabled={!librariesReady}
+                        disabled={!librariesReady || isAnalyzing}
                         className="w-full sm:w-auto flex-grow px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-slate-400 disabled:cursor-wait"
                     >
-                        {librariesReady ? 'Calcular Cumplimiento' : 'Cargando herramientas...'}
-                    </button>
-                    <button
-                        onClick={handleSaveProgress}
-                        className="w-full sm:w-auto px-4 py-2 text-sm font-medium rounded-md text-slate-700 bg-slate-200 hover:bg-slate-300 flex items-center gap-2 justify-center"
-                    >
-                        <LinkIcon />
-                        Guardar avance
+                        {isAnalyzing ? 'Analizando...' : (librariesReady ? 'Calcular Cumplimiento' : 'Cargando herramientas...')}
                     </button>
                      <button 
                         onClick={handleExportPDF} 
@@ -345,11 +338,6 @@ const App: React.FC = () => {
                      >
                         {isGeneratingPdf ? 'Generando...' : 'Exportar a PDF'}
                     </button>
-                    {showCopiedMessage && (
-                        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-800 text-white text-xs font-semibold py-1 px-3 rounded-md shadow-lg">
-                            ¡Enlace copiado al portapapeles!
-                        </div>
-                    )}
                 </div>
                 {error && <p className="text-red-600 text-sm font-medium mt-4 text-center">{error}</p>}
             </div>
@@ -365,7 +353,6 @@ const App: React.FC = () => {
                             primeraCuota={primeraCuota}
                             cantidadCuotas={cantidadCuotas}
                             nombreEncargado={nombreEncargado}
-                            shareableLink={shareableLink}
                         />
                     )}
                 </div>

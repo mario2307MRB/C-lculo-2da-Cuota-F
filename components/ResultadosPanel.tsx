@@ -1,15 +1,18 @@
+
 import React from 'react';
 import type { ResultadoCalculo } from '../types';
 import Card from './Card';
 import ProgressBar from './ProgressBar';
 import { formatCLP } from '../utils/formatters';
-import { InfoIcon } from '../constants';
+import { InfoIcon, BrainIcon } from '../constants';
 
 interface ResultadosPanelProps {
   resultado: ResultadoCalculo | null;
+  aiAnalysis: string | null;
+  isAnalyzing: boolean;
 }
 
-const ResultadosPanel: React.FC<ResultadosPanelProps> = ({ resultado }) => {
+const ResultadosPanel: React.FC<ResultadosPanelProps> = ({ resultado, aiAnalysis, isAnalyzing }) => {
   if (!resultado) {
     return (
       <Card title="Resultados del Cálculo">
@@ -95,6 +98,31 @@ const ResultadosPanel: React.FC<ResultadosPanelProps> = ({ resultado }) => {
              <p className="text-sm text-slate-500">No se ingresaron rendiciones.</p>
           )}
         </div>
+        
+        {(isAnalyzing || aiAnalysis) && (
+            <div className="mt-6 border-t pt-6">
+                <h4 className="font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                    <BrainIcon /> Sugerencias IA
+                </h4>
+                {isAnalyzing ? (
+                    <div className="text-sm text-slate-500 animate-pulse">
+                        Analizando datos y generando recomendaciones...
+                    </div>
+                ) : (
+                    aiAnalysis && (
+                         <div className="text-sm text-slate-700 bg-slate-50 p-4 rounded-md border border-slate-200 space-y-2">
+                            {aiAnalysis.split('*').filter(s => s.trim()).map((line, index) => (
+                                <p key={index} className="flex items-start gap-2">
+                                    <span className="text-indigo-500 mt-1">▪</span>
+                                    <span>{line.trim()}</span>
+                                </p>
+                            ))}
+                        </div>
+                    )
+                )}
+            </div>
+        )}
+
       </div>
     </Card>
   );
