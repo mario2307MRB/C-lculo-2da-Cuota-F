@@ -1,0 +1,5 @@
+{
+  "name": "Verificación de gastos para desembolso 2ª Cuota FOSIS",
+  "description": "Una aplicación para verificar los gastos de la primera cuota de un convenio y determinar si corresponde el desembolso de la segunda cuota. Genera un informe detallado para la toma de decisiones.",
+  "requestFramePermissions": []
+}
