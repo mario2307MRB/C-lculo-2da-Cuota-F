@@ -39,6 +39,7 @@ const App: React.FC = () => {
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [librariesReady, setLibrariesReady] = useState(false);
     const [showCopiedMessage, setShowCopiedMessage] = useState(false);
+    const [shareableLink, setShareableLink] = useState<string>('');
 
     // Check for external libraries
     useEffect(() => {
@@ -96,6 +97,28 @@ const App: React.FC = () => {
             }
         }
     }, []);
+
+     // Effect to generate the shareable link whenever relevant data changes
+    useEffect(() => {
+        const stateToSave = {
+            codigoProyecto,
+            nombreEncargado,
+            montoTotalProyecto,
+            cantidadCuotas,
+            primeraCuota,
+            rendiciones: rendiciones.map(r => ({ id: r.id, montoRendido: r.montoRendido })),
+        };
+        try {
+            const jsonString = JSON.stringify(stateToSave);
+            const base64String = btoa(jsonString);
+            const url = new URL(window.location.origin + window.location.pathname);
+            url.searchParams.set('data', base64String);
+            setShareableLink(url.toString());
+        } catch (e) {
+            console.error("Error al generar el enlace para guardar:", e);
+            setShareableLink('');
+        }
+    }, [codigoProyecto, nombreEncargado, montoTotalProyecto, cantidadCuotas, primeraCuota, rendiciones]);
 
     const handleNumericInputChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -184,7 +207,7 @@ const App: React.FC = () => {
 
         if (montoTotal > 0) {
             montoSegundaCuotaSugerido = Math.max(0, montoTotal - montoPrimeraCuota);
-            logicaSegundaCuota = `Calculado como Monto Total del Proyecto (${formatCLP(montoTotal)}) menos el Monto de la 1ª Cuota (${formatCLP(montoPrimeraCuota)}).`;
+            logicaSegundaCuota = `${formatCLP(montoTotal)} - ${formatCLP(montoPrimeraCuota)}`;
         }
         
         const newResult: ResultadoCalculo = {
@@ -203,29 +226,13 @@ const App: React.FC = () => {
     }, [primeraCuota, rendiciones, montoTotalProyecto]);
 
     const handleSaveProgress = () => {
-        const stateToSave = {
-            codigoProyecto,
-            nombreEncargado,
-            montoTotalProyecto,
-            cantidadCuotas,
-            primeraCuota,
-            rendiciones: rendiciones.map(r => ({ id: r.id, montoRendido: r.montoRendido })),
-        };
-
-        try {
-            const jsonString = JSON.stringify(stateToSave);
-            const base64String = btoa(jsonString);
-            const url = new URL(window.location.href);
-            url.searchParams.set('data', base64String);
-            
-            window.history.pushState({}, '', url.toString());
-            navigator.clipboard.writeText(url.toString()).then(() => {
+        if (shareableLink) {
+            window.history.pushState({}, '', shareableLink);
+            navigator.clipboard.writeText(shareableLink).then(() => {
                 setShowCopiedMessage(true);
                 setTimeout(() => setShowCopiedMessage(false), 3000);
             });
-
-        } catch (e) {
-            console.error("Error al guardar el progreso:", e);
+        } else {
             setError("No se pudo generar el enlace para guardar. Intente de nuevo.");
         }
     };
@@ -244,24 +251,20 @@ const App: React.FC = () => {
         setError('');
 
         try {
-            const canvas = await window.html2canvas(reportRef.current, { scale: 2 });
-            const imgData = canvas.toDataURL('image/png');
-            
-            const pdf = new window.jspdf.jsPDF({
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
                 orientation: 'p',
                 unit: 'mm',
                 format: 'a4'
             });
 
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const canvasWidth = canvas.width;
-            const canvasHeight = canvas.height;
-            const ratio = canvasWidth / canvasHeight;
-            
-            const imgWidth = pdfWidth - 20; // with margin
-            const imgHeight = imgWidth / ratio;
-            
-            pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+            await pdf.html(reportRef.current, {
+                x: 15,
+                y: 15,
+                width: 180, // A4 is 210mm wide, using 15mm margins
+                windowWidth: 800, // matching the hidden div's width for correct scaling
+                autoPaging: 'text'
+            });
             
             const fileName = `Verificacion_2da_Cuota_${codigoProyecto || 'proyecto'}.pdf`;
             pdf.save(fileName);
@@ -361,6 +364,7 @@ const App: React.FC = () => {
                             primeraCuota={primeraCuota}
                             cantidadCuotas={cantidadCuotas}
                             nombreEncargado={nombreEncargado}
+                            shareableLink={shareableLink}
                         />
                     )}
                 </div>

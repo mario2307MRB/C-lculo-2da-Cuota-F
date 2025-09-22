@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { ResultadoCalculo } from '../types';
 import { formatCLP } from '../utils/formatters';
@@ -9,6 +10,7 @@ interface PdfReportProps {
   primeraCuota: string;
   cantidadCuotas: string;
   nombreEncargado: string;
+  shareableLink: string;
 }
 
 const PdfReport: React.FC<PdfReportProps> = ({ 
@@ -17,7 +19,8 @@ const PdfReport: React.FC<PdfReportProps> = ({
     montoTotalProyecto, 
     primeraCuota,
     cantidadCuotas,
-    nombreEncargado
+    nombreEncargado,
+    shareableLink
 }) => {
   const {
     elegible,
@@ -33,9 +36,19 @@ const PdfReport: React.FC<PdfReportProps> = ({
 
   return (
     <div className="p-8 font-sans bg-white text-black">
-      <header className="mb-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-800">Verificación de gastos para desembolso 2ª Cuota FOSIS</h1>
-        <p className="text-sm text-gray-500">Generado el: {formattedGenerationDate}</p>
+      <header className="mb-8">
+        <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-800">Verificación de gastos para desembolso 2ª Cuota FOSIS</h1>
+            <p className="text-sm text-gray-500">Generado el: {formattedGenerationDate}</p>
+        </div>
+        {shareableLink && (
+            <div className="mt-4 pt-3 border-t text-xs">
+                <p className="font-semibold text-gray-700">Enlace para guardar y compartir este avance:</p>
+                <a href={shareableLink} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">
+                    Cargar datos en la aplicación
+                </a>
+            </div>
+        )}
       </header>
       
       <section className="mb-6">

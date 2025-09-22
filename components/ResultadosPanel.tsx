@@ -71,7 +71,13 @@ const ResultadosPanel: React.FC<ResultadosPanelProps> = ({ resultado }) => {
           <p className="text-2xl font-bold text-indigo-700">${formatCLP(montoSegundaCuotaSugerido)}</p>
           <div className="flex items-start gap-2 mt-2 text-xs text-indigo-600">
             <InfoIcon />
-            <span>{logicaSegundaCuota}</span>
+            {logicaSegundaCuota.includes(' - ') ? (
+              <span>
+                Cálculo: <code className="font-mono bg-indigo-100 p-1 rounded text-indigo-800">{logicaSegundaCuota}</code>
+              </span>
+            ) : (
+              <span>{logicaSegundaCuota}</span>
+            )}
           </div>
         </div>
 
