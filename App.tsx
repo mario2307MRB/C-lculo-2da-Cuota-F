@@ -294,7 +294,7 @@ const App: React.FC = () => {
                         disabled={!librariesReady}
                         className="w-full sm:w-auto flex-grow px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-slate-400 disabled:cursor-wait"
                     >
-                        {librariesReady ? 'Calcular Elegibilidad' : 'Cargando herramientas...'}
+                        {librariesReady ? 'Calcular Cumplimiento' : 'Cargando herramientas...'}
                     </button>
                      <button 
                         onClick={handleExportPDF} 
