@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { Rendicion, ResultadoCalculo, RendicionCalculo } from './types';
 import Card from './components/Card';
@@ -6,7 +7,7 @@ import RendicionesTable from './components/RendicionesTable';
 import ResultadosPanel from './components/ResultadosPanel';
 import PdfReport from './components/PdfReport';
 import { formatCLP, parseCLP } from './utils/formatters';
-import { InfoIcon } from './constants';
+import { InfoIcon, LinkIcon } from './constants';
 
 // Define types for external libraries attached to the window object
 interface CustomWindow extends Window {
@@ -37,6 +38,7 @@ const App: React.FC = () => {
     const [error, setError] = useState<string>('');
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [librariesReady, setLibrariesReady] = useState(false);
+    const [showCopiedMessage, setShowCopiedMessage] = useState(false);
 
     // Check for external libraries
     useEffect(() => {
@@ -200,6 +202,35 @@ const App: React.FC = () => {
 
     }, [primeraCuota, rendiciones, montoTotalProyecto]);
 
+    const handleSaveProgress = () => {
+        const stateToSave = {
+            codigoProyecto,
+            nombreEncargado,
+            montoTotalProyecto,
+            cantidadCuotas,
+            primeraCuota,
+            rendiciones: rendiciones.map(r => ({ id: r.id, montoRendido: r.montoRendido })),
+        };
+
+        try {
+            const jsonString = JSON.stringify(stateToSave);
+            const base64String = btoa(jsonString);
+            const url = new URL(window.location.href);
+            url.searchParams.set('data', base64String);
+            
+            window.history.pushState({}, '', url.toString());
+            navigator.clipboard.writeText(url.toString()).then(() => {
+                setShowCopiedMessage(true);
+                setTimeout(() => setShowCopiedMessage(false), 3000);
+            });
+
+        } catch (e) {
+            console.error("Error al guardar el progreso:", e);
+            setError("No se pudo generar el enlace para guardar. Intente de nuevo.");
+        }
+    };
+
+
     const handleExportPDF = async () => {
         if (typeof window.html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
             setError("Las librerías para generar PDF no se han cargado. Por favor, revise su conexión o intente de nuevo.");
@@ -288,13 +319,20 @@ const App: React.FC = () => {
             </div>
             
             <div className="mt-8 pt-6 border-t border-slate-200">
-                <div className="max-w-md mx-auto flex flex-col sm:flex-row items-center gap-4">
+                <div className="max-w-lg mx-auto flex flex-col sm:flex-row items-center gap-4 relative">
                     <button 
                         onClick={handleCalculate} 
                         disabled={!librariesReady}
                         className="w-full sm:w-auto flex-grow px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-slate-400 disabled:cursor-wait"
                     >
                         {librariesReady ? 'Calcular Cumplimiento' : 'Cargando herramientas...'}
+                    </button>
+                    <button
+                        onClick={handleSaveProgress}
+                        className="w-full sm:w-auto px-4 py-2 text-sm font-medium rounded-md text-slate-700 bg-slate-200 hover:bg-slate-300 flex items-center gap-2 justify-center"
+                    >
+                        <LinkIcon />
+                        Guardar avance
                     </button>
                      <button 
                         onClick={handleExportPDF} 
@@ -303,6 +341,11 @@ const App: React.FC = () => {
                      >
                         {isGeneratingPdf ? 'Generando...' : 'Exportar a PDF'}
                     </button>
+                    {showCopiedMessage && (
+                        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-800 text-white text-xs font-semibold py-1 px-3 rounded-md shadow-lg">
+                            ¡Enlace copiado al portapapeles!
+                        </div>
+                    )}
                 </div>
                 {error && <p className="text-red-600 text-sm font-medium mt-4 text-center">{error}</p>}
             </div>
