@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import type { ResultadoCalculo } from '../types';
 import { formatCLP } from '../utils/formatters';
@@ -20,7 +21,7 @@ const PdfReport: React.FC<PdfReportProps> = ({
     primeraCuota,
     cantidadCuotas,
     nombreEncargado,
-    shareableLink
+    shareableLink,
 }) => {
   const {
     elegible,
@@ -36,19 +37,9 @@ const PdfReport: React.FC<PdfReportProps> = ({
 
   return (
     <div className="p-8 font-sans bg-white text-black">
-      <header className="mb-8">
-        <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-800">Verificación de gastos para desembolso 2ª Cuota FOSIS</h1>
-            <p className="text-sm text-gray-500">Generado el: {formattedGenerationDate}</p>
-        </div>
-        {shareableLink && (
-            <div className="mt-4 pt-3 border-t text-xs">
-                <p className="font-semibold text-gray-700">Enlace para guardar y compartir este avance:</p>
-                <a href={shareableLink} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">
-                    Cargar datos en la aplicación
-                </a>
-            </div>
-        )}
+      <header className="mb-8 text-center">
+        <h1 className="text-2xl font-bold text-gray-800">Verificación de gastos para desembolso 2ª Cuota FOSIS</h1>
+        <p className="text-sm text-gray-500">Generado el: {formattedGenerationDate}</p>
       </header>
       
       <section className="mb-6">
@@ -124,10 +115,29 @@ const PdfReport: React.FC<PdfReportProps> = ({
         ) : <p className="text-sm text-gray-500">No hay rendiciones consideradas.</p>}
       </section>
 
-      <div className="mt-8 mb-8 text-xs text-center bg-yellow-50 border border-yellow-200 p-3 rounded-md text-yellow-800">
+      <div className="mt-8 mb-4 text-xs text-center bg-yellow-50 border border-yellow-200 p-3 rounded-md text-yellow-800">
         <strong>Nota:</strong> Este es un informe generado por una herramienta de cálculo auxiliar y sus resultados no constituyen una verificación oficial del proyecto. La validez final de los datos depende de la revisión formal por parte de la entidad correspondiente.
       </div>
-
+      
+      <section className="mt-8 mb-4">
+        <h2 className="text-lg font-semibold border-b pb-2 mb-3">Acceso a los Datos</h2>
+        <div className="text-sm p-3 bg-gray-50 border rounded-md">
+            <p className="text-gray-700 mb-2">
+                Puede cargar los datos de este informe directamente en la aplicación para su revisión o modificación futura usando el siguiente enlace:
+            </p>
+            <a 
+                href={shareableLink} 
+                className="text-blue-600 hover:underline break-all"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                {shareableLink}
+            </a>
+            <p className="text-xs text-gray-500 mt-2">
+                Si el enlace no es interactivo, por favor copie y pegue la URL completa en su navegador.
+            </p>
+        </div>
+      </section>
 
       <footer className="mt-12 pt-4 border-t">
           <div className="flex justify-center items-center">

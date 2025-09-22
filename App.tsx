@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { Rendicion, ResultadoCalculo, RendicionCalculo } from './types';
 import Card from './components/Card';
