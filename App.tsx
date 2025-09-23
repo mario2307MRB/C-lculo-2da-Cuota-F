@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { Rendicion, ResultadoCalculo, RendicionCalculo } from './types';
 import Card from './components/Card';
@@ -8,7 +5,7 @@ import Input from './components/Input';
 import RendicionesTable from './components/RendicionesTable';
 import ResultadosPanel from './components/ResultadosPanel';
 import PdfReport from './components/PdfReport';
-import { formatCLP, parseCLP } from './utils/formatters';
+import { formatCLP, parseCLP, formatDecimal, parseDecimal, formatDateForInput } from './utils/formatters';
 import { InfoIcon } from './constants';
 import { GoogleGenAI } from "@google/genai";
 
@@ -30,11 +27,18 @@ const App: React.FC = () => {
         { id: crypto.randomUUID(), montoRendido: '800.000' },
     ];
 
+    const defaultEndDate = new Date();
+    defaultEndDate.setFullYear(defaultEndDate.getFullYear() + 1);
+
+
     // State
     const [codigoProyecto, setCodigoProyecto] = useState<string>('AB-123456-78901-CD');
     const [nombreEncargado, setNombreEncargado] = useState<string>('Juan Pérez González');
     const [montoTotalProyecto, setMontoTotalProyecto] = useState<string>('20.000.000');
     const [cantidadCuotas, setCantidadCuotas] = useState<string>('2');
+    const [garantiaAnticipoUF, setGarantiaAnticipoUF] = useState<string>('1.500,00');
+    const [valorUFdelDia, setValorUFdelDia] = useState<string>('37.511,83');
+    const [fechaTerminoVigencia, setFechaTerminoVigencia] = useState<string>(formatDateForInput(defaultEndDate));
     const [primeraCuota, setPrimeraCuota] = useState<string>('10.000.000');
     const [rendiciones, setRendiciones] = useState<Rendicion[]>(initialRendiciones);
     const [resultado, setResultado] = useState<ResultadoCalculo | null>(null);
@@ -95,6 +99,7 @@ const App: React.FC = () => {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
         const montoPrimeraCuota = parseCLP(primeraCuotaStr);
+        const rendicionCumple = calculoResultado.sumaRendida >= calculoResultado.umbral60;
 
         const prompt = `
 Eres un asesor financiero experto del FOSIS, especializado en la evaluación de proyectos sociales.
@@ -106,12 +111,15 @@ Datos del Proyecto:
 - Monto Total Rendido: $${formatCLP(calculoResultado.sumaRendida)}
 - Porcentaje de Ejecución: ${calculoResultado.porcentajeEjecucion.toFixed(1)}%
 - Umbral Requerido (60%): $${formatCLP(calculoResultado.umbral60)}
-- Estado: ${calculoResultado.elegible ? 'CUMPLE' : 'NO CUMPLE'}
+- Estado Rendición (>=60%): ${rendicionCumple ? 'CUMPLE' : 'NO CUMPLE'}
+- Estado Garantía (>= Total Proyecto): ${calculoResultado.garantiaCumple ? 'CUMPLE' : 'NO CUMPLE'}
+- Estado Final: ${calculoResultado.elegible ? 'AUTORIZADO' : 'NO AUTORIZADO'}
 
 Basado en estos datos, genera una recomendación profesional en español con los siguientes puntos en formato de lista (usando '*' para cada punto):
-- Un resumen del estado actual (si cumple o no y por qué).
-- Si no cumple, indica claramente cuánto falta por rendir ($${formatCLP(calculoResultado.brechaPara60)}) y sugiere acciones concretas (ej. 'Revisar gastos adicionales', 'Acelerar la presentación de boletas pendientes').
-- Si cumple, felicita al encargado y menciona que se puede proceder con la solicitud de la segunda cuota.
+- Un resumen del estado final (si se autoriza o no y por qué, mencionando ambas condiciones: rendición y garantía).
+- Si la rendición no cumple, indica claramente cuánto falta por rendir ($${formatCLP(calculoResultado.brechaPara60)}).
+- Si la garantía no cumple, indica claramente la diferencia ($${formatCLP(calculoResultado.garantiaBrecha)}) y que se debe actualizar la póliza.
+- Si ambas condiciones se cumplen, felicita al encargado y menciona que se puede proceder con la solicitud de la segunda cuota.
 - Finaliza con una nota de ánimo.
 
 Sé conciso y profesional. No agregues encabezados, saludos ni despedidas.
@@ -145,6 +153,20 @@ Sé conciso y profesional. No agregues encabezados, saludos ni despedidas.
             setter(value);
         }
     };
+
+    const handleDecimalInputChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
+        setter(e.target.value);
+    };
+
+    const handleFormatDecimalOnBlur = (setter: React.Dispatch<React.SetStateAction<string>>, options: Intl.NumberFormatOptions = {}) => (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        const parsed = parseDecimal(value);
+        if(!isNaN(parsed)) {
+            setter(formatDecimal(parsed, options));
+        } else {
+            setter(formatDecimal(0, options));
+        }
+    };
     
     const handleRendicionChange = (index: number, field: keyof Rendicion, value: string) => {
         const newRendiciones = [...rendiciones];
@@ -171,6 +193,12 @@ Sé conciso y profesional. No agregues encabezados, saludos ni despedidas.
         setError('');
         setResultado(null);
         setAiAnalysis(null);
+
+        const montoTotal = parseCLP(montoTotalProyecto);
+        const garantiaTotal = parseDecimal(garantiaAnticipoUF) * parseDecimal(valorUFdelDia);
+        
+        const garantiaCumple = montoTotal > 0 ? garantiaTotal >= montoTotal : true;
+        const garantiaBrecha = montoTotal > 0 ? Math.max(0, montoTotal - garantiaTotal) : 0;
         
         const montoPrimeraCuota = parseCLP(primeraCuota);
         if (montoPrimeraCuota <= 0) {
@@ -183,8 +211,8 @@ Sé conciso y profesional. No agregues encabezados, saludos ni despedidas.
             const rendido = parseCLP(r.montoRendido);
             let currentError: string | undefined = undefined;
 
-            if (rendido <= 0) {
-                currentError = "El monto rendido debe ser positivo.";
+            if (rendido < 0) { // Should allow 0, but not negative
+                currentError = "El monto rendido no puede ser negativo.";
             }
             
             if (currentError) {
@@ -209,11 +237,11 @@ Sé conciso y profesional. No agregues encabezados, saludos ni despedidas.
 
         const sumaRendida = rendicionesConsideradas.reduce((sum, r) => sum + r.montoRendido, 0);
         const umbral60 = montoPrimeraCuota * 0.6;
-        const elegible = sumaRendida >= umbral60;
+        const rendicionCumple = sumaRendida >= umbral60;
         const brechaPara60 = Math.max(0, umbral60 - sumaRendida);
         const porcentajeEjecucion = montoPrimeraCuota > 0 ? (sumaRendida / montoPrimeraCuota) * 100 : 0;
         
-        const montoTotal = parseCLP(montoTotalProyecto);
+        const elegible = rendicionCumple && garantiaCumple;
 
         let montoSegundaCuotaSugerido = montoPrimeraCuota;
         let logicaSegundaCuota = "El monto de la 2ª cuota se asume igual al de la 1ª cuota, ya que no se ingresó un Monto Total de Proyecto válido.";
@@ -232,12 +260,14 @@ Sé conciso y profesional. No agregues encabezados, saludos ni despedidas.
             montoSegundaCuotaSugerido,
             logicaSegundaCuota,
             rendicionesConsideradas,
+            garantiaCumple,
+            garantiaBrecha,
         };
         
         setResultado(newResult);
         getAIAnalysis(newResult, montoTotalProyecto, primeraCuota);
 
-    }, [primeraCuota, rendiciones, montoTotalProyecto]);
+    }, [primeraCuota, rendiciones, montoTotalProyecto, garantiaAnticipoUF, valorUFdelDia]);
 
     const handleExportPDF = async () => {
         if (typeof window.html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
@@ -278,6 +308,7 @@ Sé conciso y profesional. No agregues encabezados, saludos ni despedidas.
         }
     };
 
+    const garantiaEnPesos = parseDecimal(garantiaAnticipoUF) * parseDecimal(valorUFdelDia);
 
     return (
         <div className="container mx-auto p-4 md:p-8">
@@ -297,6 +328,51 @@ Sé conciso y profesional. No agregues encabezados, saludos ni despedidas.
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Input label="Monto Total del Proyecto" id="montoTotalProyecto" value={montoTotalProyecto} onChange={handleNumericInputChange(setMontoTotalProyecto)} prefix="CLP$" />
                                 <Input label="Cantidad de Cuotas" id="cantidadCuotas" value={cantidadCuotas} onChange={(e) => setCantidadCuotas(e.target.value.replace(/[^0-9]/g, ''))} type="text" placeholder="Ej: 5" />
+                            </div>
+                            <hr className="!my-6 border-slate-200" />
+                            <p className="text-sm text-slate-500 -mt-4 mb-2">Garantía de Anticipo:</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <Input
+                                    label="Valor Garantía (UF)"
+                                    id="garantiaUF"
+                                    value={garantiaAnticipoUF}
+                                    onChange={handleDecimalInputChange(setGarantiaAnticipoUF)}
+                                    onBlur={handleFormatDecimalOnBlur(setGarantiaAnticipoUF, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    prefix="UF"
+                                />
+                                <Input
+                                    label="Valor UF del día"
+                                    id="valorUF"
+                                    value={valorUFdelDia}
+                                    onChange={handleDecimalInputChange(setValorUFdelDia)}
+                                    onBlur={handleFormatDecimalOnBlur(setValorUFdelDia, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    prefix="$"
+                                />
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-600">
+                                        Valor Garantía (CLP)
+                                    </label>
+                                    <div className="mt-1 relative rounded-md shadow-sm">
+                                        <div className="pointer-events-none absolute inset-y-0 left-0 pl-3 flex items-center">
+                                            <span className="text-slate-500 sm:text-sm">CLP$</span>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            value={formatCLP(garantiaEnPesos)}
+                                            className="block w-full rounded-md border-slate-300 bg-slate-100 pl-10 pr-3 py-2 sm:text-sm"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="mt-4">
+                               <Input
+                                    label="Fecha Término Vigencia Garantía"
+                                    id="fechaTerminoVigencia"
+                                    type="date"
+                                    value={fechaTerminoVigencia}
+                                    onChange={(e) => setFechaTerminoVigencia(e.target.value)}
+                                />
                             </div>
                             <hr className="!my-6 border-slate-200" />
                             <p className="text-sm text-slate-500 -mt-4 mb-2">Datos para el cálculo:</p>
@@ -353,6 +429,9 @@ Sé conciso y profesional. No agregues encabezados, saludos ni despedidas.
                             primeraCuota={primeraCuota}
                             cantidadCuotas={cantidadCuotas}
                             nombreEncargado={nombreEncargado}
+                            garantiaAnticipoUF={garantiaAnticipoUF}
+                            valorUFdelDia={valorUFdelDia}
+                            fechaTerminoVigencia={fechaTerminoVigencia}
                         />
                     )}
                 </div>

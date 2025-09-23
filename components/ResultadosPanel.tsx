@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { ResultadoCalculo } from '../types';
 import Card from './Card';
@@ -32,22 +31,41 @@ const ResultadosPanel: React.FC<ResultadosPanelProps> = ({ resultado, aiAnalysis
     montoSegundaCuotaSugerido,
     logicaSegundaCuota,
     rendicionesConsideradas,
+    garantiaCumple,
+    garantiaBrecha,
   } = resultado;
 
   const statusBg = elegible ? 'bg-emerald-100 border-emerald-500' : 'bg-red-100 border-red-500';
   const statusText = elegible ? 'text-emerald-800' : 'text-red-800';
   const statusTitle = elegible ? 'Autorizar 2ª Cuota' : 'No Autorizar 2ª Cuota';
+  const rendicionCumple = porcentajeEjecucion >= 60;
 
   return (
     <Card title="Resultados del Cálculo">
       <div className="space-y-6">
         <div className={`p-4 rounded-lg border ${statusBg}`}>
           <h3 className={`text-lg font-bold ${statusText}`}>{statusTitle}</h3>
-          {!elegible && (
-            <p className={`mt-1 text-sm ${statusText}`}>
-              No se ha alcanzado el umbral del 60%. Falta por rendir un monto de ${formatCLP(brechaPara60)}.
-            </p>
-          )}
+          {elegible && <p className={`mt-1 text-sm ${statusText}`}>Se cumplen todas las condiciones para proceder con el desembolso.</p>}
+        </div>
+        
+        <div>
+            <h4 className="font-semibold text-slate-800 mb-2">Condiciones para Desembolso</h4>
+            <ul className="space-y-2 text-sm">
+                <li className={`flex items-start gap-3 p-3 rounded-md border ${rendicionCumple ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                    <span className={`font-bold text-lg ${rendicionCumple ? 'text-emerald-600' : 'text-red-600'}`}>{rendicionCumple ? '✓' : '✗'}</span>
+                    <div>
+                        <span className={rendicionCumple ? 'text-emerald-800' : 'text-red-800'}>La rendición de gastos es <strong>igual o mayor al 60%</strong> de la 1ª cuota.</span>
+                        {!rendicionCumple && <p className="text-xs text-red-700 mt-1">Falta por rendir ${formatCLP(brechaPara60)}.</p>}
+                    </div>
+                </li>
+                <li className={`flex items-start gap-3 p-3 rounded-md border ${garantiaCumple ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                        <span className={`font-bold text-lg ${garantiaCumple ? 'text-emerald-600' : 'text-red-600'}`}>{garantiaCumple ? '✓' : '✗'}</span>
+                    <div>
+                        <span className={garantiaCumple ? 'text-emerald-800' : 'text-red-800'}>La garantía de anticipo es <strong>igual o mayor al monto total</strong> del proyecto.</span>
+                            {!garantiaCumple && <p className="text-xs text-red-700 mt-1">La garantía es inferior por ${formatCLP(garantiaBrecha)}.</p>}
+                    </div>
+                </li>
+            </ul>
         </div>
         
         <div>
@@ -65,7 +83,7 @@ const ResultadosPanel: React.FC<ResultadosPanelProps> = ({ resultado, aiAnalysis
             </div>
             <div className="bg-slate-100 p-3 rounded-md">
                 <p className="text-sm text-slate-500">Brecha para Umbral</p>
-                <p className={`text-lg font-bold ${elegible ? 'text-emerald-600' : 'text-red-600'}`}>${formatCLP(brechaPara60)}</p>
+                <p className={`text-lg font-bold ${rendicionCumple ? 'text-emerald-600' : 'text-red-600'}`}>${formatCLP(brechaPara60)}</p>
             </div>
         </div>
 

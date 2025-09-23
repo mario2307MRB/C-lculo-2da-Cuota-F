@@ -8,6 +8,19 @@ export const parseCLP = (value: string): number => {
   return Number(value.replace(/[^0-9]/g, '')) || 0;
 };
 
+export const formatDecimal = (value: number, options: Intl.NumberFormatOptions = {}): string => {
+    return new Intl.NumberFormat('es-CL', options).format(value);
+};
+
+export const parseDecimal = (value: string): number => {
+  if (typeof value !== 'string') return 0;
+  // 1. Remove thousands separators (.)
+  // 2. Replace decimal separator (,) with a dot (.)
+  const sanitized = value.replace(/\./g, '').replace(',', '.');
+  return Number(sanitized) || 0;
+};
+
+
 export const formatDateForInput = (date: Date): string => {
   return date.toISOString().split('T')[0];
 };

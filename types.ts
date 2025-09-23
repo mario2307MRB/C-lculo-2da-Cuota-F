@@ -19,4 +19,6 @@ export interface ResultadoCalculo {
   montoSegundaCuotaSugerido: number;
   logicaSegundaCuota: string;
   rendicionesConsideradas: RendicionCalculo[];
+  garantiaCumple: boolean;
+  garantiaBrecha: number;
 }

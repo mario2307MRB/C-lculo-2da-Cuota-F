@@ -6,6 +6,7 @@ interface InputProps {
   id: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   type?: 'text' | 'number' | 'date' | 'month';
   prefix?: string;
   placeholder?: string;
@@ -13,7 +14,7 @@ interface InputProps {
   required?: boolean;
 }
 
-const Input: React.FC<InputProps> = ({ label, id, value, onChange, type = 'text', prefix, placeholder, error, required }) => {
+const Input: React.FC<InputProps> = ({ label, id, value, onChange, onBlur, type = 'text', prefix, placeholder, error, required }) => {
   return (
     <div className="w-full">
       <label htmlFor={id} className="block text-sm font-medium text-slate-600">
@@ -31,6 +32,7 @@ const Input: React.FC<InputProps> = ({ label, id, value, onChange, type = 'text'
           name={id}
           value={value}
           onChange={onChange}
+          onBlur={onBlur}
           placeholder={placeholder}
           className={`
             block w-full rounded-md border-slate-300
